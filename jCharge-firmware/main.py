@@ -1,33 +1,40 @@
 # This is your main script.
 import time
 from temperature import TemperatureSensors
-from leds import Leds
+from leds import Leds, BLUE, OFF
 from channel import Channel
 import network
 from machine import I2C, Pin
+import ubinascii
 
-num_channels = 8
+# the channels equal their position in the array + 1
 channel_pins = [16, 17, 25, 32, 4, 33, 23, 5]
 
 status_leds = Leds()
 channels = list()
 
-# wlan = network.WLAN(network.STA_IF)
-# wlan.active(True)
-# if not wlan.isconnected():
-#     print('connecting to WiFi...')
-#     wlan.connect('Bill Wi The Science Fi', '225261007622')
-#     while not wlan.isconnected():
-#         pass
-# print('Device IP:', wlan.ifconfig()[0])
-# print("Device ID: " + str(ubinascii.hexlify(wlan.config('mac') )))
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+
+if not wlan.isconnected():
+    print('connecting to WiFi...')
+    wlan.connect('Bill Wi The Science Fi', '225261007622')
+    while not wlan.isconnected():
+        time.sleep(0.5)
+        status_leds.set_all(OFF)
+        time.sleep(0.5)
+        status_leds.set_all(BLUE)
+
+print('Device IP:', wlan.ifconfig()[0])
+print("Device ID: " + str(ubinascii.hexlify(wlan.config('mac') )))
 
 temperature_sensors = TemperatureSensors(status_leds)
 
-for x in range(num_channels):
+for x in range(len(channel_pins)):
     channels.append(Channel(x+1, channel_pins[x], status_leds, temperature_sensors))
 
 while True:
+    temperature_sensors.update_temperatures()
     for channel in channels:
         channel.start_discharge()
         print("Channel {} is {} C.".format(channel, channel.get_temperature()))

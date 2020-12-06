@@ -17,7 +17,7 @@ class TemperatureSensors:
     sensor_calibration = {}
     temperature_data = {}
 
-    def __init__(self, status_leds):
+    def __init__(self, status_leds, force_calibrate=False):
         self.status_leds = status_leds
 
         # the data bus is on GPIO 27
@@ -31,7 +31,7 @@ class TemperatureSensors:
         print("Found {} sensors on the data bus.".format(len(self.sensors)))
 
         # check if the calibration exists and load it if it does
-        if self._CALIBRATION_FILE_NAME in os.listdir():
+        if self._CALIBRATION_FILE_NAME in os.listdir() and force_calibrate == False:
             with open(self._CALIBRATION_FILE_NAME) as json_file:
                 self.sensor_calibration = json.load(json_file)
                 print("Found {} sensors in the calibration file.".format(len(self.sensor_calibration)))
@@ -126,8 +126,13 @@ class TemperatureSensors:
         Returns:
             [number]: [Temperature in degrees celcius.]
         """
-        sensor_id = convert_sensor_byte(self.sensor_calibration[channel])
-        return self.data_bus.read_temp(sensor_id)
+        try:
+            sensor_id = convert_sensor_byte(self.sensor_calibration[channel])
+            return self.data_bus.read_temp(sensor_id)
+        
+        except KeyError:
+            print("ERROR channel sensor not found.")
+            return None
     
 
     def update_temperatures(self):
