@@ -1,16 +1,15 @@
 import machine, neopixel, time
 
-GREEN = (255, 0, 0)
-RED = (0, 255, 0)
-DIM_BLUE = (0, 0, 50)
-BLUE = (0, 0, 255)
+GREEN = (0, 10, 0)
+RED = (10, 0, 0)
+BLUE = (0, 0, 10)
+YELLOW = (24, 16, 0)
+OFF = (0, 0, 0)
 
 class Leds:
-    pin = 18
-    number = 8
     neopixel = None
 
-    def __init__(self, pin=18, number=8):
+    def __init__(self, pin=26, number=8):
         """[Initialise the LED driver]
 
         Args:
@@ -20,30 +19,30 @@ class Leds:
         self.pin = pin
         self.number = number
 
-        self.neopixel = neopixel.NeoPixel(machine.Pin(self.pin), self.number)
+        self.leds = neopixel.NeoPixel(machine.Pin(self.pin), self.number)
         self.clear()
 
-        for i in reversed(range(self.number)):
-            self.neopixel[i] = (0, 0, 255)
-            time.sleep(0.1)
-            self.neopixel.write()
-
         for i in range(self.number):
-            self.neopixel[i] = (0, 0, 0)
+            self.leds[i] = BLUE
             time.sleep(0.1)
-            self.neopixel.write()
-        
+            self.leds.write()
+
         for i in reversed(range(self.number)):
-            self.neopixel[i] = (0, 0, 50)
+            self.leds[i] = OFF
             time.sleep(0.1)
-            self.neopixel.write()
+            self.leds.write()
+        
+        for i in range(self.number):
+            self.leds[i] = BLUE
+            time.sleep(0.1)
+            self.leds.write()
     
     def clear(self):
         """[Set every LED to off.]
         """
         for i in range(self.number):
-            self.neopixel[i] = (0, 0, 0)
-        self.neopixel.write()
+            self.leds[i] = OFF
+        self.leds.write()
 
     def set_all(self, colour):
         """[Set every LED to the specified RGB colour.]
@@ -56,8 +55,8 @@ class Leds:
         r, g, b = colour[0], colour[1], colour[2]
 
         for i in range(self.number):
-            self.neopixel[i] = (r, g, b)
-        self.neopixel.write()   
+            self.leds[i] = (r, g, b)
+        self.leds.write()   
 
     def set_channel(self, channel, colour):
         """[Set the channel's LED to the specified RGB colour.]
@@ -66,7 +65,5 @@ class Leds:
             channel ([integer]): [The channel to set 1-8]
             r ([tuple]): [Red, green and blue values 0-255 (r, g, b)]
         """
-        r, g, b = colour[0], colour[1], colour[2]
-
-        self.neopixel[channel-1] = (r, g, b)
-        self.neopixel.write()       
+        self.leds[channel-1] = colour
+        self.leds.write()       
