@@ -1,10 +1,11 @@
 import machine, neopixel, time
 
-GREEN = (0, 10, 0)
-RED = (10, 0, 0)
-BLUE = (0, 0, 10)
+GREEN = (0, 30, 0)
+RED = (30, 0, 0)
+BLUE = (0, 0, 30)
 YELLOW = (24, 16, 0)
 OFF = (0, 0, 0)
+
 
 class Leds:
     neopixel = None
@@ -31,15 +32,16 @@ class Leds:
             self.leds[i] = OFF
             time.sleep(0.1)
             self.leds.write()
-        
+
         for i in range(self.number):
             self.leds[i] = BLUE
             time.sleep(0.1)
             self.leds.write()
-    
+
+        self.set_all(OFF)
+
     def clear(self):
-        """[Set every LED to off.]
-        """
+        """[Set every LED to off.]"""
         for i in range(self.number):
             self.leds[i] = OFF
         self.leds.write()
@@ -56,14 +58,19 @@ class Leds:
 
         for i in range(self.number):
             self.leds[i] = (r, g, b)
-        self.leds.write()   
+        self.leds.write()
 
-    def set_channel(self, channel, colour):
+    def set_channel(self, channel, colour, write=True):
         """[Set the channel's LED to the specified RGB colour.]
 
         Args:
             channel ([integer]): [The channel to set 1-8]
             r ([tuple]): [Red, green and blue values 0-255 (r, g, b)]
         """
-        self.leds[channel-1] = colour
-        self.leds.write()       
+        channel = int(channel) - 1
+        self.leds[channel] = colour
+        if write:
+            self.leds.write()
+
+    def write(self):
+        self.leds.write()

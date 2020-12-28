@@ -1,0 +1,21 @@
+{
+    "python.languageServer": "Pylance",
+    "python.analysis.autoSearchPath": true,
+    "python.formatting.provider": "black",
+    "python.analysis.extraPaths": [
+        "./jCharge-firmware",
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-3cc928b/frozen",
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-e1b8ce6/frozen",
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-3cc928b/stubs",
+        "./jCharge-firmware/.micropy/jChargeFirmware"
+    ],
+    "python.linting.enabled": true,
+    // Loaded Stubs:  esp32-micropython-1.12.0 
+    "python.autoComplete.extraPaths": [
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-3cc928b/frozen",
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-e1b8ce6/frozen",
+        "./jCharge-firmware/.micropy/BradenM-micropy-stubs-3cc928b/stubs",
+        "./jCharge-firmware/.micropy/jChargeFirmware"
+    ],
+    "python.linting.pylintEnabled": false
+}
