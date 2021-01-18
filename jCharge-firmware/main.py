@@ -4,10 +4,14 @@ from temperature import TemperatureSensors
 from leds import Leds, BLUE, OFF, YELLOW, GREEN, RED
 from channel import Channel
 from current import CurrentSensors
+from packet import Packet
 import network
 import ubinascii
-from machine import Timer
+from machine import Timer, reset
 import gc
+import json
+from usocket import *
+import uwebsockets.client
 
 # define some constants here
 CELL_DETECTION_THRESHOLD = 1  # in volts
@@ -36,30 +40,61 @@ current_sensors = CurrentSensors(current_sensor_configuration)
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
 
-# if not wlan.isconnected():
-#     print("connecting to WiFi...")
-#     wlan.connect("Bill Wi The Science Fi", "225261007622")
-#     start_time = time.time()
-#     while not wlan.isconnected():
-#         if time.time() - start_time > 30:
-#             print("WiFI TOOK LONGER THAN 30s TO CONNECT. RESETTING.")
-#             status_leds.set_channel(4, RED)
-#             status_leds.set_channel(5, RED)
-#             time.sleep(0.25)
-#             machine.reset()
-#         time.sleep(0.25)
-#         status_leds.set_channel(4, OFF)
-#         status_leds.set_channel(5, BLUE)
-#         time.sleep(0.25)
-#         status_leds.set_channel(4, BLUE)
-#         status_leds.set_channel(5, OFF)
+if not wlan.isconnected():
+    print("connecting to WiFi...")
+    wlan.connect("Bill Wi The Science Fi", "225261007622")
+    while not wlan.isconnected():
+        time.sleep(0.25)
+        status_leds.set_channel(4, OFF)
+        status_leds.set_channel(5, BLUE)
+        time.sleep(0.25)
+        status_leds.set_channel(4, BLUE)
+        status_leds.set_channel(5, OFF)
 
-# print("Device IP:", wlan.ifconfig()[0])
-print("Device ID: " + str(ubinascii.hexlify(wlan.config("mac"))))
+status_leds.set_channel(4, OFF)
+status_leds.set_channel(5, OFF)
 
-# websocket = uwebsockets.client.connect("ws://echo.websocket.org/")
-# mesg = "The quick brown fox jumps over the lazy dog"
-# websocket.send(mesg + "\r\n")
+DEVICE_ID = str(ubinascii.hexlify(wlan.config("mac")))
+CAPABILITIES = {
+    "channels": 8,
+    "charge": False,
+    "discharge": True,
+    "configurableChargeCurrent": False,
+    "configurableDischargeCurrent": False,
+    "configurableChargeVoltage": False,
+    "configurableDischargeVoltage": True,
+}
+
+print("Device IP:", wlan.ifconfig()[0])
+print("Device ID: " + DEVICE_ID)
+print("Searching for jCharge server...")
+
+packet = Packet(1, DEVICE_ID, CAPABILITIES)
+
+s = socket(AF_INET, SOCK_DGRAM)
+s.bind(("0.0.0.0", 54321))
+payload = None
+
+while True:
+    payload = s.recvfrom(4096)[0]
+
+    try:
+        payload = json.loads(payload)
+
+    except:
+        pass
+
+    if payload.get("command") == "hello":
+        break
+
+
+print(
+    "Connecting to {} at {}.".format(
+        payload["payload"]["serverName"], payload["payload"]["serverHost"]
+    )
+)
+websocket = uwebsockets.client.connect("ws://" + payload["payload"]["serverHost"])
+websocket.send(packet.build_hello_server())
 # resp = websocket.recv()
 # print(resp)
 
@@ -73,6 +108,12 @@ for x in range(len(channel_pins)):
     )
 
 leds_on = True
+
+channels[0].update_temperatures()
+time.sleep(0.75)
+
+for channel in channels:
+    channel.get_temperature()
 
 
 def io_timer_handler(timer):
@@ -231,5 +272,5 @@ except Exception as e:
     debug_output_timer.deinit()
     stats_collection_timer.deinit()
     status_leds.set_all(RED)
-    time.sleep(1)
+    time.sleep(0.1)
     raise (e)

@@ -1,8 +1,8 @@
 import machine, neopixel, time
 
-GREEN = (0, 30, 0)
-RED = (30, 0, 0)
-BLUE = (0, 0, 30)
+GREEN = (0, 10, 0)
+RED = (10, 0, 0)
+BLUE = (0, 0, 10)
 YELLOW = (24, 16, 0)
 OFF = (0, 0, 0)
 

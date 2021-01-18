@@ -64,7 +64,6 @@ class Channel:
                 str(self.discharge_stats), self.channel
             )
         )
-        self.discharge_stats = None
 
     def start_discharge(self):
         """[Starts the current discharge]"""

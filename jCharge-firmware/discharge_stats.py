@@ -1,5 +1,4 @@
 import time
-import gc
 
 
 class DischargeStats:
