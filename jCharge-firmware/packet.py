@@ -14,7 +14,7 @@ class Packet:
 
     def build_hello_server(self):
         payload = {
-            "id": self.id,
+            "id": str(self.id),
             "deviceName": None,
             "deviceManufacturer": "jCharge",
             "deviceModel": "D8",
@@ -22,7 +22,15 @@ class Packet:
         }
         return self.build_packet("HelloServer", payload)
 
+    def build_device_status(self, payload):
+        return self.build_packet("DeviceStatus", payload)
+
     def build_packet(self, command, payload):
         return json.dumps(
-            {"version": self.version, "command": command, "payload": payload}
+            {
+                "version": self.version,
+                "command": command,
+                "deviceId": str(self.id),
+                "payload": payload,
+            }
         )

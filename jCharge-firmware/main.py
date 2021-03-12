@@ -13,6 +13,11 @@ import json
 from usocket import *
 import uwebsockets.client
 
+import logging
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 # define some constants here
 CELL_DETECTION_THRESHOLD = 1  # in volts
 MAX_CELL_VOLTAGE = 4.25  # in volts
@@ -31,188 +36,225 @@ current_sensor_configuration = {
     "7": (66, 3),
     "8": (66, 2),
 }
+try:
+    status_leds = Leds()
+    channels = list()
+    last_pong = 0
 
-status_leds = Leds()
-channels = list()
+    current_sensors = CurrentSensors(current_sensor_configuration)
 
-current_sensors = CurrentSensors(current_sensor_configuration)
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
 
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
+    if not wlan.isconnected():
+        log.info("Connecting to WiFi...")
+        wlan.connect("Bill Wi The Science Fi", "225261007622")
+        while not wlan.isconnected():
+            time.sleep(0.25)
+            status_leds.set_channel(4, OFF)
+            status_leds.set_channel(5, BLUE)
+            time.sleep(0.25)
+            status_leds.set_channel(4, BLUE)
+            status_leds.set_channel(5, OFF)
 
-if not wlan.isconnected():
-    print("connecting to WiFi...")
-    wlan.connect("Bill Wi The Science Fi", "225261007622")
-    while not wlan.isconnected():
-        time.sleep(0.25)
-        status_leds.set_channel(4, OFF)
-        status_leds.set_channel(5, BLUE)
-        time.sleep(0.25)
-        status_leds.set_channel(4, BLUE)
-        status_leds.set_channel(5, OFF)
+    status_leds.set_channel(4, OFF)
+    status_leds.set_channel(5, OFF)
 
-status_leds.set_channel(4, OFF)
-status_leds.set_channel(5, OFF)
+    DEVICE_ID = ubinascii.hexlify(wlan.config("mac")).decode("utf8")
 
-DEVICE_ID = str(ubinascii.hexlify(wlan.config("mac")))
-CAPABILITIES = {
-    "channels": 8,
-    "charge": False,
-    "discharge": True,
-    "configurableChargeCurrent": False,
-    "configurableDischargeCurrent": False,
-    "configurableChargeVoltage": False,
-    "configurableDischargeVoltage": True,
-}
+    CAPABILITIES = {
+        "channels": 8,
+        "charge": False,
+        "discharge": True,
+        "configurableChargeCurrent": False,
+        "configurableDischargeCurrent": False,
+        "configurableChargeVoltage": False,
+        "configurableDischargeVoltage": True,
+    }
 
-print("Device IP:", wlan.ifconfig()[0])
-print("Device ID: " + DEVICE_ID)
-print("Searching for jCharge server...")
+    log.info("Device IP: " + str(wlan.ifconfig()[0]))
+    log.info("Device ID: " + DEVICE_ID)
+    log.info("Searching for jCharge server...")
 
-packet = Packet(1, DEVICE_ID, CAPABILITIES)
+    packet = Packet(1, DEVICE_ID, CAPABILITIES)
 
-s = socket(AF_INET, SOCK_DGRAM)
-s.bind(("0.0.0.0", 54321))
-payload = None
+    s = socket(AF_INET, SOCK_DGRAM)
+    s.bind(("0.0.0.0", 54321))
+    s.setblocking(False)
+    payload = None
 
-while True:
-    payload = s.recvfrom(4096)[0]
+    iter = 0
+    going_up = True
 
-    try:
-        payload = json.loads(payload)
+    while True:
+        try:
+            payload = json.loads(s.recvfrom(4096)[0])
+            if payload and payload.get("command") == "hello":
+                break
 
-    except:
-        pass
+        except:
+            pass
 
-    if payload.get("command") == "hello":
-        break
+        time.sleep(0.15)  # every 200ms we update the searching animation
+        if going_up:
+            status_leds.set_channel(4 - iter, BLUE)
+            status_leds.set_channel(5 + iter, BLUE)
+            iter += 1
 
+            if iter > 3:  # once we get to the "top" start going back down
+                going_up = False
 
-print(
-    "Connecting to {} at {}.".format(
-        payload["payload"]["serverName"], payload["payload"]["serverHost"]
-    )
-)
-websocket = uwebsockets.client.connect("ws://" + payload["payload"]["serverHost"])
-websocket.send(packet.build_hello_server())
-# resp = websocket.recv()
-# print(resp)
+        else:
+            iter -= (
+                1  # this needs to be first so we decrement before writing to the LEDs
+            )
+            status_leds.set_channel(4 - iter, OFF)
+            status_leds.set_channel(5 + iter, OFF)
 
-temperature_sensors = TemperatureSensors(status_leds)
+            if iter < 1:  # once we get to the "bottom" start going back up
+                going_up = True
 
-for x in range(len(channel_pins)):
-    channels.append(
-        Channel(
-            x + 1, channel_pins[x], status_leds, temperature_sensors, current_sensors
+    log.info(
+        "Connecting to {} at {}.".format(
+            payload["payload"]["serverName"], payload["payload"]["websocketHost"]
         )
     )
+    websocket = uwebsockets.client.connect(
+        "ws://" + payload["payload"]["websocketHost"]
+    )
+    websocket.send(packet.build_hello_server())
+    last_pong = time.time()
 
-leds_on = True
+    temperature_sensors = TemperatureSensors(status_leds)
 
-channels[0].update_temperatures()
-time.sleep(0.75)
+    for x in range(len(channel_pins)):
+        channels.append(
+            Channel(
+                x + 1,
+                channel_pins[x],
+                status_leds,
+                temperature_sensors,
+                current_sensors,
+            )
+        )
 
-for channel in channels:
-    channel.get_temperature()
+    leds_on = True
 
+    channels[0].update_temperatures()
+    time.sleep(0.75)
 
-def io_timer_handler(timer):
-    global leds_on
-    leds_on = not leds_on
     for channel in channels:
         channel.get_temperature()
-        if channel.state == "empty":
-            channel.set_led(BLUE, write=False)
+        channel.set_led(BLUE)
 
-        elif channel.state == "idle":
-            channel.set_led(YELLOW, write=False)
+    def io_timer_handler(timer):
+        global leds_on
+        leds_on = not leds_on
+        stats = []
 
-        elif channel.state == "discharging":
-            if leds_on:
+        # websocket.recv()
+        # websocket.send_ping()
+        # log.debug("Pong Time")
+        # log.debug(websocket._last_pong)
+
+        for channel in channels:
+            channel.get_temperature()
+            stats.append(channel.get_stats())
+
+            if channel.state == "empty":
+                channel.set_led(BLUE, write=False)
+
+            elif channel.state == "idle":
                 channel.set_led(YELLOW, write=False)
-            else:
-                channel.set_led(OFF, write=False)
 
-        elif channel.state == "complete":
-            channel.set_led(GREEN, write=False)
+            elif channel.state == "discharging":
+                if leds_on:
+                    channel.set_led(YELLOW, write=False)
+                else:
+                    channel.set_led(OFF, write=False)
 
-        elif channel.state == "error" or channel.state == "verror":
-            if leds_on:
-                channel.set_led(RED, write=False)
+            elif channel.state == "complete":
+                channel.set_led(GREEN, write=False)
 
-            else:
-                channel.set_led(OFF, write=False)
+            elif channel.state == "error" or channel.state == "verror":
+                if leds_on:
+                    channel.set_led(RED, write=False)
 
-    # we're updating all the LEDs at once, so don't write them all at the same time - just once at the end
-    status_leds.write()
+                else:
+                    channel.set_led(OFF, write=False)
 
-    # get new temp readings too
-    temperature_sensors.update_temperatures()
+        # we're updating all the LEDs at once, so don't write them all at the same time - just once at the end
+        status_leds.write()
 
+        # get new temp readings too
+        temperature_sensors.update_temperatures()
 
-def stats_collection_handler(timer):
-    for channel in channels:
-        if channel.state == "discharging":
-            c = (
-                channel.voltage_and_current["current"]
-                if channel.voltage_and_current
-                else 0
-            )
-            v = (
-                round(channel.voltage_and_current["voltage"], 2)
-                if channel.voltage_and_current
-                else 0
-            )
-            t = channel.temperature if channel.temperature else 0
+        stats = json.dumps({"channels": stats})
+        websocket.send(packet.build_device_status(stats))
 
-            channel.discharge_stats.add_stat(
-                v,
+    def stats_collection_handler(timer):
+        for channel in channels:
+            if channel.state == "discharging":
+                c = (
+                    channel.voltage_and_current["current"]
+                    if channel.voltage_and_current
+                    else 0
+                )
+                v = (
+                    round(channel.voltage_and_current["voltage"], 2)
+                    if channel.voltage_and_current
+                    else 0
+                )
+                t = channel.temperature if channel.temperature else 0
+
+                channel.discharge_stats.add_stat(
+                    v,
+                    c,
+                    t,
+                )
+
+    def debug_output_handler(timer):
+        debug_string = "\n"
+        for channel in channels:
+            voltage_and_current = channel.voltage_and_current
+            v = voltage_and_current["voltage"]
+            c = voltage_and_current["current"]
+            t = channel.temperature
+
+            debug_string += "{} | Capacity: {}mAh | Current: {}mA | Voltage: {}v | Temp: {}C | State: {} \n".format(
+                channel.channel,
+                round(channel.discharge_stats.get_milliamp_hours(), 1)
+                if channel.discharge_stats
+                else 0,
                 c,
+                v,
                 t,
+                channel.state,
             )
+        gc.collect()
+        # print(chr(27) + "[2J")
+        log.debug(debug_string)
+        log.debug("FREE RAM: " + str(gc.mem_free()))
+        log.debug("Up Time: " + str(time.time()))
 
+    io_timer = Timer(0)
+    io_timer.init(period=500, mode=Timer.PERIODIC, callback=io_timer_handler)
 
-def debug_output_handler(timer):
-    debug_string = ""
-    for channel in channels:
-        voltage_and_current = channel.voltage_and_current
-        v = voltage_and_current["voltage"]
-        c = voltage_and_current["current"]
-        t = channel.temperature
+    stats_collection_timer = Timer(1)
+    stats_collection_timer.init(
+        period=30000, mode=Timer.PERIODIC, callback=stats_collection_handler
+    )
 
-        debug_string += "{} | Capacity: {}mAh | Current: {}mA | Voltage: {}v | Temp: {}C | State: {} \n".format(
-            channel.channel,
-            round(channel.discharge_stats.get_milliamp_hours(), 1)
-            if channel.discharge_stats
-            else 0,
-            c,
-            v,
-            t,
-            channel.state,
-        )
-    gc.collect()
-    # print(chr(27) + "[2J")
-    print(debug_string)
-    print("FREE RAM: " + str(gc.mem_free()))
-    print("Up Time: " + str(time.time()))
+    debug_output_timer = Timer(2)
+    debug_output_timer.init(
+        period=5000, mode=Timer.PERIODIC, callback=debug_output_handler
+    )
 
+    log.info("FINISHED SETUP")
 
-io_timer = Timer(0)
-io_timer.init(period=500, mode=Timer.PERIODIC, callback=io_timer_handler)
-
-stats_collection_timer = Timer(1)
-stats_collection_timer.init(
-    period=30000, mode=Timer.PERIODIC, callback=stats_collection_handler
-)
-
-debug_output_timer = Timer(2)
-debug_output_timer.init(period=5000, mode=Timer.PERIODIC, callback=debug_output_handler)
-
-print("FINISHED SETUP")
-
-try:
     while True:
         for channel in channels:
+            # as often as the main loop runs, update the voltage and current, and temperature readings
             voltage_and_current = channel.get_voltage_and_current()
             channel.voltage_and_current = voltage_and_current
             channel.temperature = channel.get_temperature()
@@ -229,7 +271,7 @@ try:
                 # if the voltage is outside that range but above the cell detection threshold then set an error state
                 elif v > CELL_DETECTION_THRESHOLD:
                     channel.set_verror()
-                    print(
+                    log.info(
                         "Detected cell in channel {} that is out of voltage range ({}).".format(
                             channel.channel, v
                         )
@@ -268,9 +310,9 @@ try:
 except Exception as e:
     for channel in channels:
         channel.discharge_pin.off()
-    io_timer.deinit()
-    debug_output_timer.deinit()
-    stats_collection_timer.deinit()
+    Timer(0).deinit()
+    Timer(1).deinit()
+    Timer(2).deinit()
     status_leds.set_all(RED)
-    time.sleep(0.1)
+    time.sleep(1)
     raise (e)

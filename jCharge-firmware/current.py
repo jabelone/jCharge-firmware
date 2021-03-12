@@ -34,6 +34,14 @@ class CurrentSensors:
         return round(shunt_voltage / self._shunt_value)  # ohms law V = IR
 
     def get_channel_voltage_and_current(self, channel):
+        """[Returns the voltage and current of a channel.]
+
+        Args:
+            channel ([string]): [the channel number to get]
+
+        Returns:
+            [object]: [{"current": current, "voltage": voltage}]
+        """
         shunt_voltage = self._get_channel_shunt_voltage(channel)
         current = round(shunt_voltage / self._shunt_value)  # ohms law V = IR
         voltage = self._get_channel_bus_voltage(channel) + (shunt_voltage / 1000)

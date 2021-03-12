@@ -1,6 +1,10 @@
 import time
 from machine import Pin
 from discharge_stats import DischargeStats
+import logging
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 class Channel:
@@ -49,17 +53,19 @@ class Channel:
         """[A cell was removed from the channel]"""
         self.stop_discharge()
         self.set_empty()
+        log.info("Cell removed from slot {}.".format(self.channel))
 
     def cell_inserted(self):
         """[A cell was inserted into the channel]"""
         self.start_discharge()
         self.set_discharging()
+        log.info("Cell inserted on slot {}.".format(self.channel))
 
     def stop_discharge(self):
         """[Stops the current discharge]"""
         self.discharge_pin.off()
         self.send_stats()
-        print(
+        log.info(
             "Discharged finished at {}mAh on channel {}.".format(
                 str(self.discharge_stats), self.channel
             )
@@ -71,10 +77,17 @@ class Channel:
             self.temperature, self.voltage_and_current["voltage"]
         )
         self.discharge_pin.on()
+        log.debug("Cell started discharging on slot {}.".format(self.channel))
 
-    def send_stats(self):
-        # TODO implement send stats
-        pass
+    def get_stats(self):
+        return {
+            "id": self.channel,
+            "state": self.state,
+            "stage": None,
+            "current": self.voltage_and_current["current"],
+            "voltage": self.voltage_and_current["voltage"],
+            "temperature": self.temperature,
+        }
 
     def get_temperature(self):
         """[Returns the latest temperature read for the channel.]

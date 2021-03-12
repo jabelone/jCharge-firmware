@@ -24,18 +24,7 @@ class Leds:
         self.clear()
 
         for i in range(self.number):
-            self.leds[i] = BLUE
-            time.sleep(0.1)
-            self.leds.write()
-
-        for i in reversed(range(self.number)):
             self.leds[i] = OFF
-            time.sleep(0.1)
-            self.leds.write()
-
-        for i in range(self.number):
-            self.leds[i] = BLUE
-            time.sleep(0.1)
             self.leds.write()
 
         self.set_all(OFF)
