@@ -64,7 +64,7 @@ class Channel:
     def stop_discharge(self):
         """[Stops the current discharge]"""
         self.discharge_pin.off()
-        self.send_stats()
+        # self.send_stats() # TODO: implement
         log.info(
             "Discharged finished at {}mAh on channel {}.".format(
                 str(self.discharge_stats), self.channel
@@ -87,6 +87,9 @@ class Channel:
             "current": self.voltage_and_current["current"],
             "voltage": self.voltage_and_current["voltage"],
             "temperature": self.temperature,
+            "current": self.discharge_stats.get_milliamp_hours()
+            if self.discharge_stats
+            else 0,
         }
 
     def get_temperature(self):
