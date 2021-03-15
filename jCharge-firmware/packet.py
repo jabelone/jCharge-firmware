@@ -1,5 +1,10 @@
 import json
 
+import logging
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 
 class Packet:
     def __init__(self, version, id, capabilities):
@@ -25,7 +30,12 @@ class Packet:
     def build_device_status(self, payload):
         return self.build_packet("DeviceStatus", payload)
 
+    def build_ping(self):
+        payload = {}
+        return self.build_packet("Ping", payload)
+
     def build_packet(self, command, payload):
+        """Returns a string of a jCharge packet"""
         return json.dumps(
             {
                 "version": self.version,
@@ -34,3 +44,24 @@ class Packet:
                 "payload": payload,
             }
         )
+
+    def parse_packet(self, packet):
+        """Attempts to parse a jCharge packet"""
+        packet = json.loads(packet)
+
+        if packet["version"] != 1:
+            log.error(
+                "Unexpected protocol version number: {}".format(packet["version"])
+            )
+            return None
+
+        else:
+            return packet
+
+    def handle_packet(self, packet):
+        """Handle a parsed packet"""
+        logging.debug("Got a {} packet!".format(packet["command"]))
+
+        # so far we don't have any handlers! TODO: fix.
+
+        return True

@@ -18,14 +18,15 @@ class WS:
         self.socket = None
         self.ws = None
         self.connected = False
+        self.connecting = False
         self.status_leds = status_leds
         self.temperature_sensors = temperature_sensors
         self.channels = channels
         self.packet = packet
         self.last_pong = None
-        self._ping_timer = Timer(3)
 
     def search_and_connect(self):
+        self.connecting = True
         s = socket(AF_INET, SOCK_DGRAM)
         s.bind(("0.0.0.0", 54321))
         s.setblocking(False)
@@ -35,7 +36,9 @@ class WS:
 
         while True:
             try:
-                packet = json.loads(s.recvfrom(4096)[0])
+                packet = s.recvfrom(4096)[0]
+                packet = self.packet.parse_packet(packet)
+
                 if packet and packet.get("command") == "hello":
                     self.last_pong = time.time()
 
@@ -48,7 +51,10 @@ class WS:
                     )
                     self.ws = uwebsockets.client.connect("ws://" + websocketHost)
                     self.connected = True
+                    self.connecting = False
+                    self.last_pong = time.ticks_ms()
                     log.info("Connected to {} at {}.".format(serverName, websocketHost))
+                    self.ws.send(self.packet.build_ping())
                     return
 
             except:
@@ -73,7 +79,13 @@ class WS:
 
     def send(self, message):
         if not self.connected:
-            log.warn("Trying to send message while websocket is NOT connected.")
+            log.warning("Trying to send message while websocket is NOT connected.")
+
+            # if we aren't already tring to connect, then try to
+            if not self.connecting:
+                self.ws.close()
+                self.search_and_connect()
+
             return False
 
         try:
@@ -85,12 +97,20 @@ class WS:
             self.connected = False
             self.search_and_connect()
 
-    def send_ping(self):
-        self.ws.send_ping()
-        return True
+    def receive_packet(self):
+        try:
+            packet = self.packet.parse_packet(self.ws.recv())
+            if packet["command"] == "pong":
+                time_difference = (time.ticks_ms() - self.last_pong) / 1000
+                log.debug("Time since last pong: {}s".format(time_difference))
+                self.last_pong = time.ticks_ms()
 
-    def recv(self):
-        return self.ws.recv()
+            return packet
+
+        except OSError:
+            # this means we probably got disconnected from the websocket so we should try to connect again
+            self.connected = False
+            self.search_and_connect()
 
 
 class WSDisconnect(Exception):

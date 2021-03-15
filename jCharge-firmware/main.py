@@ -127,68 +127,73 @@ debug_output_timer.init(period=5000, mode=Timer.PERIODIC, callback=timers.debug_
 
 log.info("FINISHED SETUP")
 
-while True:
-    for channel in channels:
-        # as often as the main loop runs, update the voltage and current, and temperature readings
-        voltage_and_current = channel.get_voltage_and_current()
-        channel.voltage_and_current = voltage_and_current
-        channel.temperature = channel.get_temperature()
+try:
+    while True:
+        # receive an handle a jCharge packet as often as the main loop runs
+        ws.receive_packet()
 
-        v = voltage_and_current["voltage"]
-        c = voltage_and_current["current"]
-        t = channel.temperature
+        for channel in channels:
+            # as often as the main loop runs, update the voltage and current, and temperature readings
+            voltage_and_current = channel.get_voltage_and_current()
+            channel.voltage_and_current = voltage_and_current
+            channel.temperature = channel.get_temperature()
 
-        if channel.state == "empty":
-            # if the voltage is above the min required to start discharging and below threshold
-            if v > channel.start_discharge_voltage_cutoff and v < MAX_CELL_VOLTAGE:
-                channel.cell_inserted()
+            v = voltage_and_current["voltage"]
+            c = voltage_and_current["current"]
+            t = channel.temperature
 
-            # if the voltage is outside that range but above the cell detection threshold then set an error state
-            elif v > CELL_DETECTION_THRESHOLD:
-                channel.set_verror()
-                log.info(
-                    "Detected cell in channel {} that is out of voltage range ({}).".format(
-                        channel.channel, v
+            if channel.state == "empty":
+                # if the voltage is above the min required to start discharging and below threshold
+                if v > channel.start_discharge_voltage_cutoff and v < MAX_CELL_VOLTAGE:
+                    channel.cell_inserted()
+
+                # if the voltage is outside that range but above the cell detection threshold then set an error state
+                elif v > CELL_DETECTION_THRESHOLD:
+                    channel.set_verror()
+                    log.info(
+                        "Detected cell in channel {} that is out of voltage range ({}).".format(
+                            channel.channel, v
+                        )
                     )
+
+            elif channel.state == "verror":
+                # if the cell is removed or the dodgy connection fixes itself (ie cell finished being inserted)
+                if (
+                    v < CELL_DETECTION_THRESHOLD
+                    or v > channel.start_discharge_voltage_cutoff
+                ):
+                    channel.set_empty()
+
+            elif channel.state == "error" or channel.state == "complete":
+                # if the cell is removed
+                if v < CELL_DETECTION_THRESHOLD:
+                    channel.set_empty()
+
+            elif channel.state == "discharging":
+                channel.discharge_stats.add_current(
+                    c,
                 )
+                # if we're discharging and the voltage gets to the lvc stop the discharge
+                if v < channel.low_voltage_cutoff:
+                    channel.stop_discharge()
+                    # channel.send_stats() # TODO: implement
+                    channel.set_complete()
 
-        elif channel.state == "verror":
-            # if the cell is removed or the dodgy connection fixes itself (ie cell finished being inserted)
-            if (
-                v < CELL_DETECTION_THRESHOLD
-                or v > channel.start_discharge_voltage_cutoff
-            ):
-                channel.set_empty()
+                # if the temp gets too high
+                if t and t > channel.temperature_cutoff:
+                    channel.stop_discharge()
+                    # channel.send_stats() # TODO: implement
+                    channel.set_error()
+                    # TODO: send message indicating over temperature error
 
-        elif channel.state == "error" or channel.state == "complete":
-            # if the cell is removed
-            if v < CELL_DETECTION_THRESHOLD:
-                channel.set_empty()
-
-        elif channel.state == "discharging":
-            channel.discharge_stats.add_current(
-                c,
-            )
-            # if we're discharging and the voltage gets to the lvc stop the discharge
-            if v < channel.low_voltage_cutoff:
-                channel.stop_discharge()
-                # channel.send_stats() # TODO: implement
-                channel.set_complete()
-
-            # if the temp gets too high
-            if t and t > channel.temperature_cutoff:
-                channel.stop_discharge()
-                # channel.send_stats() # TODO: implement
-                channel.set_error()
-                # TODO: send message indicating over temperature error
-
-# except Exception as e:
-#     # if we hit any unhandled exceptions, shut everything down, kill the timers, and set the LEDs red for 1s. Then reset the board.
-#     for channel in channels:
-#         channel.discharge_pin.off()
-#     Timer(0).deinit()
-#     Timer(1).deinit()
-#     Timer(2).deinit()
-#     status_leds.set_all(RED)
-#     time.sleep(1)
-#     machine.reset()
+except Exception as e:
+    # if we hit any unhandled exceptions, shut everything down, kill the timers, and set the LEDs red for 1s. Then reset the board.
+    for channel in channels:
+        channel.discharge_pin.off()
+    Timer(0).deinit()
+    Timer(1).deinit()
+    Timer(2).deinit()
+    status_leds.set_all(RED)
+    log.error(e)
+    time.sleep(1)
+    raise e

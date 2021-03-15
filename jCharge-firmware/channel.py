@@ -87,7 +87,7 @@ class Channel:
             "current": self.voltage_and_current["current"],
             "voltage": self.voltage_and_current["voltage"],
             "temperature": self.temperature,
-            "current": self.discharge_stats.get_milliamp_hours()
+            "capacity": self.discharge_stats.get_milliamp_hours()
             if self.discharge_stats
             else 0,
         }
