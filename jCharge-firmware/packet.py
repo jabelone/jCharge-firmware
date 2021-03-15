@@ -60,7 +60,8 @@ class Packet:
 
     def handle_packet(self, packet):
         """Handle a parsed packet"""
-        logging.debug("Got a {} packet!".format(packet["command"]))
+        if packet["command"] != "pong":
+            log.debug("Got a {} packet!".format(packet["command"]))
 
         # so far we don't have any handlers! TODO: fix.
 

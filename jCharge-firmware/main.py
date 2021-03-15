@@ -130,7 +130,9 @@ log.info("FINISHED SETUP")
 try:
     while True:
         # receive an handle a jCharge packet as often as the main loop runs
-        ws.receive_packet()
+        received_packet = ws.receive_packet()
+        if received_packet:
+            packet.handle_packet(received_packet)
 
         for channel in channels:
             # as often as the main loop runs, update the voltage and current, and temperature readings
