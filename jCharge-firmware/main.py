@@ -20,7 +20,7 @@ log.setLevel(logging.DEBUG)
 s = None  # our global socket (for auto discovery) object
 
 # define some constants here
-CELL_DETECTION_THRESHOLD = 1  # minimum voltage to detect a cell in volts
+CELL_DETECTION_THRESHOLD = 0.5  # minimum voltage to detect a cell in volts
 MAX_CELL_VOLTAGE = 4.25  # maximum voltage to detect a cell in volts
 
 # the channels equal their position in the array + 1
@@ -61,7 +61,7 @@ wlan.active(True)
 
 if not wlan.isconnected():
     log.info("Connecting to WiFi...")
-    wlan.connect("Bill Wi The Science Fi", "225261007622")
+    wlan.connect("Townzett", "Back4Good")
     # wlan.connect("HSBNEWiFi", "HSBNEPortHack")
     while not wlan.isconnected():
         time.sleep(0.25)
@@ -100,7 +100,6 @@ log.info("Searching for jCharge server...")
 # setup our websocket class, start searching for jCharge servers and connect if we find one
 ws = WS(status_leds, temperature_sensors, channels, packet)
 ws.search_and_connect()
-ws.send(packet.build_hello_server())  # send the hellow server packet
 
 # request a temperature reading on the 1wire bus and wait for it to complete
 channels[0].update_temperatures()
@@ -123,7 +122,7 @@ stats_collection_timer.init(
 )
 
 debug_output_timer = Timer(2)
-debug_output_timer.init(period=5000, mode=Timer.PERIODIC, callback=timers.debug_output)
+# debug_output_timer.init(period=5000, mode=Timer.PERIODIC, callback=timers.debug_output)
 
 log.info("FINISHED SETUP")
 
@@ -132,7 +131,7 @@ try:
         # receive an handle a jCharge packet as often as the main loop runs
         received_packet = ws.receive_packet()
         if received_packet:
-            packet.handle_packet(received_packet)
+            packet.handle_packet(received_packet, channels, ws)
 
         for channel in channels:
             # as often as the main loop runs, update the voltage and current, and temperature readings
@@ -157,6 +156,11 @@ try:
                             channel.channel, v
                         )
                     )
+
+            elif channel.state == "idle":
+                # if the cell is removed or the dodgy connection fixes itself (ie cell finished being inserted)
+                if v < CELL_DETECTION_THRESHOLD or v > MAX_CELL_VOLTAGE:
+                    channel.set_empty()
 
             elif channel.state == "verror":
                 # if the cell is removed or the dodgy connection fixes itself (ie cell finished being inserted)

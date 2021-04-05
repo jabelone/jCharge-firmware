@@ -1,5 +1,5 @@
 import json
-
+from handlers import *
 import logging
 
 log = logging.getLogger(__name__)
@@ -47,7 +47,10 @@ class Packet:
 
     def parse_packet(self, packet):
         """Attempts to parse a jCharge packet"""
-        packet = json.loads(packet)
+        try:
+            packet = json.loads(packet)
+        except:
+            return None
 
         if packet["version"] != 1:
             log.error(
@@ -58,11 +61,13 @@ class Packet:
         else:
             return packet
 
-    def handle_packet(self, packet):
+    def handle_packet(self, packet, channels, ws):
         """Handle a parsed packet"""
+
         if packet["command"] != "pong":
             log.debug("Got a {} packet!".format(packet["command"]))
 
-        # so far we don't have any handlers! TODO: fix.
+        if packet["command"] == "startAction":
+            start_action(packet, channels, ws)
 
         return True
