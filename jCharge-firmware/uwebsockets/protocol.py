@@ -4,12 +4,14 @@ Sourced from: https://github.com/danni/uwebsockets
 Websockets protocol
 """
 
+import logging
 import ure as re
 import ustruct as struct
 import urandom as random
 import usocket as socket
 from ucollections import namedtuple
-import time
+
+LOGGER = logging.getLogger(__name__)
 
 # Opcodes
 OP_CONT = const(0x0)
@@ -72,12 +74,10 @@ class Websocket:
     """
 
     is_client = False
-    _last_pong = 0
 
     def __init__(self, sock):
         self.sock = sock
         self.open = True
-        self._last_pong = time.time()
 
     def __enter__(self):
         return self
@@ -122,6 +122,8 @@ class Websocket:
             data = self.sock.read(length)
         except MemoryError:
             # We can't receive this many bytes, close the socket
+            if __debug__:
+                LOGGER.debug("Frame of length %s too big. Closing", length)
             self.close(code=CLOSE_TOO_BIG)
             return True, OP_CLOSE, None
 
@@ -188,6 +190,7 @@ class Websocket:
             except NoDataException:
                 return ""
             except ValueError:
+                LOGGER.debug("Failed to read frame. Socket dead.")
                 self._close()
                 raise ConnectionClosed()
 
@@ -202,10 +205,11 @@ class Websocket:
                 self._close()
                 return
             elif opcode == OP_PONG:
-                self._last_pong = time.time()
-                continue
+                return "pong"
             elif opcode == OP_PING:
                 # We need to send a pong frame
+                if __debug__:
+                    LOGGER.debug("Sending PONG")
                 self.write_frame(OP_PONG, data)
                 # And then wait to receive
                 continue
@@ -231,6 +235,9 @@ class Websocket:
         self.write_frame(opcode, buf)
 
     def send_ping(self):
+        """Send ping to the websocket."""
+
+        assert self.open
         self.write_frame(OP_PING)
 
     def close(self, code=CLOSE_OK, reason=""):
@@ -244,5 +251,7 @@ class Websocket:
         self._close()
 
     def _close(self):
+        if __debug__:
+            LOGGER.debug("Connection closed")
         self.open = False
         self.sock.close()

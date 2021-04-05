@@ -19,41 +19,47 @@ class Timers:
         self.leds_on = False
 
     def io(self, timer):
+        if self.ws.ws and not self.ws.ws.open:
+            self.ws.connected = False
+
+        if self.ws.last_pong is not None and time.time() - self.ws.last_pong >= 7:
+            log.warning("WS timed out!")
+            self.ws.connected = False
+
+        else:
+            self.ws.send_ping()
+
         self.leds_on = not self.leds_on
         stats = []
-
-        if time.ticks_ms() - self.ws.last_pong > 5000:
-            log.warning(
-                "WSDiscconect: the last ping response was more than 5 seconds ago..."
-            )
-            self.ws.connected = False
 
         for channel in self.channels:
             channel.get_temperature()
             # add each channel's stats to the stats list
             stats.append(channel.get_stats())
 
-            if channel.state == "empty":
-                channel.set_led(BLUE, write=False)
+            # if the websocket is connected, update the LED states
+            if self.ws.connected:
+                if channel.state == "empty":
+                    channel.set_led(BLUE, write=False)
 
-            elif channel.state == "idle":
-                channel.set_led(YELLOW, write=False)
-
-            elif channel.state == "discharging":
-                if self.leds_on:
+                elif channel.state == "idle":
                     channel.set_led(YELLOW, write=False)
-                else:
-                    channel.set_led(OFF, write=False)
 
-            elif channel.state == "complete":
-                channel.set_led(GREEN, write=False)
+                elif channel.state == "discharging":
+                    if self.leds_on:
+                        channel.set_led(YELLOW, write=False)
+                    else:
+                        channel.set_led(OFF, write=False)
 
-            elif channel.state == "error" or channel.state == "verror":
-                if self.leds_on:
-                    channel.set_led(RED, write=False)
+                elif channel.state == "complete":
+                    channel.set_led(GREEN, write=False)
 
-                else:
-                    channel.set_led(OFF, write=False)
+                elif channel.state == "error" or channel.state == "verror":
+                    if self.leds_on:
+                        channel.set_led(RED, write=False)
+
+                    else:
+                        channel.set_led(OFF, write=False)
 
         # update all the LEDs at once, so don't write them all after each iteration - just once at the end
         self.status_leds.write()
@@ -64,7 +70,6 @@ class Timers:
         stats = json.dumps({"channels": stats})
 
         self.ws.send(self.packet.build_device_status(stats))
-        self.ws.send(self.packet.build_ping())
 
     def stats_collection(self, timer):
         for channel in self.channels:
