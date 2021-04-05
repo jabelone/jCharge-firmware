@@ -6,6 +6,7 @@ class DischargeStats:
         self.milliamp_seconds = 0
         self.start_time = time.ticks_ms()
         self.last_stats_update = self.start_time  # last time we updated the stats
+        self.last_current = 0
 
         self.start_temperature = start_temperature
         self.end_temperature = None
@@ -36,6 +37,16 @@ class DischargeStats:
 
     def add_current(self, current):
         t = time.ticks_ms()
+
+        # calculate the milliseconds that have elapsed since the last update and update last_stats_update
         milliseconds_elapsed = t - self.last_stats_update
         self.last_stats_update = t
-        self.milliamp_seconds += current * milliseconds_elapsed / 1000
+
+        # get the average current in the last time period and calculate the milliamp seconds
+        average_current = (
+            current + self.last_current if self.last_current else current
+        ) / 2
+
+        # work out the milliamp seconds and add to the running total
+        self.milliamp_seconds += average_current * milliseconds_elapsed / 1000
+        self.last_current = current
