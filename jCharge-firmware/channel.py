@@ -15,8 +15,8 @@ class Channel:
         leds_object=None,
         temperature_sensors=None,
         current_sensors=None,
-        low_voltage_cutoff=3.15,
-        start_discharge_voltage_cutoff=3.3,
+        low_voltage_cutoff=2.5,
+        start_discharge_voltage_cutoff=3,
         temperature_cutoff=50,
     ):
         """[Control an individual discharge channel.]
@@ -57,8 +57,9 @@ class Channel:
 
     def cell_inserted(self):
         """[A cell was inserted into the channel]"""
-        self.start_discharge()
-        self.set_discharging()
+        # self.start_discharge()
+        # self.set_discharging()
+        self.set_idle()
         log.info("Cell inserted on slot {}.".format(self.channel))
 
     def stop_discharge(self):
