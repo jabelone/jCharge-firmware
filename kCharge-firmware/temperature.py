@@ -2,7 +2,8 @@ import time
 import os
 import json
 import machine
-import onewire, ds18x20
+import onewire
+import ds18x20
 import ubinascii
 from leds import YELLOW, OFF, RED, GREEN
 
@@ -18,6 +19,7 @@ def convert_sensor_byte(sensor):
 class TemperatureSensors:
     _CALIBRATION_FILE_NAME = "temperature_calibration.json"
     TEMP_RESOLUTION = 9
+    extra_sensors = 2  # how many extra (non channel) temp sensors we have
     sensor_calibration = {}
     temperature_data = {}
 
@@ -33,7 +35,7 @@ class TemperatureSensors:
 
         # scan for devices on the bus
         self.sensors = self.data_bus.scan()
-        print("Found {} sensors on the data bus.".format(len(self.sensors)))
+        print("Found {} temp sensors on the data bus.".format(len(self.sensors)))
 
         for sensor in self.sensors:
             # set each sensor to 9 bit resolution for fast reading
@@ -44,14 +46,14 @@ class TemperatureSensors:
             with open(self._CALIBRATION_FILE_NAME) as json_file:
                 self.sensor_calibration = json.load(json_file)
                 print(
-                    "Found {} sensors in the calibration file.".format(
+                    "Found {} temp sensors in the calibration file.".format(
                         len(self.sensor_calibration)
                     )
                 )
 
-                if len(self.sensor_calibration) != len(self.sensors):
+                if len(self.sensor_calibration) != len(self.sensors) - self.extra_sensors:
                     raise RuntimeError(
-                        "Sensor calibration data does not match the amount found on the bus!"
+                        "Sensor calibration data does not match the amount found on the bus! This may mean a hardware failure."
                     )
 
         else:
@@ -78,7 +80,7 @@ class TemperatureSensors:
 
             print("Temperature baseline calculated, starting calibration.")
 
-            for channel in range(len(self.sensors)):
+            for channel in range(len(self.sensors) - self.extra_sensors):
                 channel += 1
                 ignore = []
 
@@ -105,7 +107,7 @@ class TemperatureSensors:
         Returns:
             [type]: [A string of the sensor ID.]
         """
-        baseline_rise = 1  # rise above baseline in degrees C required to calibrate
+        baseline_rise = 0.5  # rise above baseline in degrees C required to calibrate
         max_calibration_loops = (
             20  # max times to look for the temp rise specified above per channel
         )

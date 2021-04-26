@@ -24,18 +24,18 @@ CELL_DETECTION_THRESHOLD = 0.5  # minimum voltage to detect a cell in volts
 MAX_CELL_VOLTAGE = 4.25  # maximum voltage to detect a cell in volts
 
 # the channels equal their position in the array + 1
-channel_pins = [16, 17, 25, 32, 4, 33, 23, 5]
+channel_pins = [4, 25, 33, 32, 23, 5, 17, 16]
 
 # current sensor config in the format of channel (ina_address, ina_channel)
 current_sensor_configuration = {
-    "1": (64, 3),
-    "2": (64, 1),
-    "3": (64, 2),
+    "1": (64, 1),
+    "2": (64, 2),
+    "3": (64, 3),
     "4": (65, 3),
     "5": (65, 2),
     "6": (65, 1),
-    "7": (66, 3),
-    "8": (66, 2),
+    "7": (65, 3),
+    "8": (65, 2),
 }
 
 # capabilities of the hardware
@@ -61,8 +61,8 @@ wlan.active(True)
 
 if not wlan.isconnected():
     log.info("Connecting to WiFi...")
-    wlan.connect("Townzett", "Back4Good")
-    # wlan.connect("HSBNEWiFi", "HSBNEPortHack")
+    # wlan.connect("Bill Wi The Science Fi", "225261007622")
+    wlan.connect("HSBNEWiFi", "HSBNEPortHack")
     while not wlan.isconnected():
         time.sleep(0.25)
         status_leds.set_channel(4, OFF)

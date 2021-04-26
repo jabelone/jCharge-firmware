@@ -54,7 +54,8 @@ class Packet:
 
         if packet["version"] != 1:
             log.error(
-                "Unexpected protocol version number: {}".format(packet["version"])
+                "Unexpected protocol version number: {}".format(
+                    packet["version"])
             )
             return None
 

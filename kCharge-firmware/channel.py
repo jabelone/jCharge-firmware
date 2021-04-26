@@ -6,6 +6,8 @@ import logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+AUTO_DISCHARGE = False
+
 
 class Channel:
     def __init__(
@@ -57,10 +59,13 @@ class Channel:
 
     def cell_inserted(self):
         """[A cell was inserted into the channel]"""
-        # self.start_discharge()
-        # self.set_discharging()
-        self.set_idle()
         log.info("Cell inserted on slot {}.".format(self.channel))
+
+        if AUTO_DISCHARGE:
+            self.start_discharge()
+            self.set_discharging()
+        else:
+            self.set_idle()
 
     def stop_discharge(self):
         """[Stops the current discharge]"""
@@ -99,7 +104,8 @@ class Channel:
         Returns:
             [number]: [Temperature in degrees celcius.]
         """
-        self.temperature = self.temperature_sensors.get_temperature(self.channel)
+        self.temperature = self.temperature_sensors.get_temperature(
+            self.channel)
         return self.temperature
 
     def get_current(self):

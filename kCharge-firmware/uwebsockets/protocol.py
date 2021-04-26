@@ -247,7 +247,12 @@ class Websocket:
 
         buf = struct.pack("!H", code) + reason.encode("utf-8")
 
-        self.write_frame(OP_CLOSE, buf)
+        # this handles the error we may get if the socket is already closed
+        try:
+            self.write_frame(OP_CLOSE, buf)
+        except OSError:
+            pass
+
         self._close()
 
     def _close(self):
