@@ -8,10 +8,10 @@ log.setLevel(logging.DEBUG)
 
 class Packet:
     def __init__(self, version, id, capabilities):
-        """[Parse and generate jCharge packets.]
+        """[Parse and generate kCharge packets.]
 
         Args:
-            version ([integer]): [Version of the jCharge protocol]
+            version ([integer]): [Version of the kCharge protocol]
         """
         self.version = version
         self.id = id
@@ -21,7 +21,7 @@ class Packet:
         payload = {
             "id": str(self.id),
             "deviceName": None,
-            "deviceManufacturer": "jCharge",
+            "deviceManufacturer": "kCharge",
             "deviceModel": "D8",
             "capabilities": self.capabilities,
         }
@@ -35,7 +35,7 @@ class Packet:
         return self.build_packet("Ping", payload)
 
     def build_packet(self, command, payload):
-        """Returns a string of a jCharge packet"""
+        """Returns a string of a kCharge packet"""
         return json.dumps(
             {
                 "version": self.version,
@@ -46,7 +46,7 @@ class Packet:
         )
 
     def parse_packet(self, packet):
-        """Attempts to parse a jCharge packet"""
+        """Attempts to parse a kCharge packet"""
         try:
             packet = json.loads(packet)
         except:

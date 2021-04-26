@@ -74,7 +74,7 @@ if not wlan.isconnected():
 status_leds.set_channel(4, OFF)
 status_leds.set_channel(5, OFF)
 
-# get our device ID (the mac address of the WiFi radio) and initialise our jCharge packet class
+# get our device ID (the mac address of the WiFi radio) and initialise our kCharge packet class
 DEVICE_ID = ubinascii.hexlify(wlan.config("mac")).decode("utf8")
 packet = Packet(1, DEVICE_ID, CAPABILITIES)
 
@@ -95,9 +95,9 @@ for x in range(len(channel_pins)):
 
 log.info("Device IP: " + str(wlan.ifconfig()[0]))
 log.info("Device ID: " + DEVICE_ID)
-log.info("Searching for jCharge server...")
+log.info("Searching for kCharge server...")
 
-# setup our websocket class, start searching for jCharge servers and connect if we find one
+# setup our websocket class, start searching for kCharge servers and connect if we find one
 ws = WS(status_leds, temperature_sensors, channels, packet)
 ws.search_and_connect()
 
@@ -128,7 +128,7 @@ log.info("FINISHED SETUP")
 
 try:
     while True:
-        # receive an handle a jCharge packet as often as the main loop runs
+        # receive an handle a kCharge packet as often as the main loop runs
         received_packet = ws.receive_packet()
         if received_packet:
             packet.handle_packet(received_packet, channels, ws)
