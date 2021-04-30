@@ -51,10 +51,10 @@ class TemperatureSensors:
                     )
                 )
 
-                if len(self.sensor_calibration) != len(self.sensors) - self.extra_sensors:
-                    raise RuntimeError(
-                        "Sensor calibration data does not match the amount found on the bus! This may mean a hardware failure."
-                    )
+                # if len(self.sensor_calibration) != len(self.sensors) - self.extra_sensors:
+                #     raise RuntimeError(
+                #         "Sensor calibration data does not match the amount found on the bus! This may mean a hardware failure."
+                #     )
 
         else:
             print(
@@ -158,7 +158,7 @@ class TemperatureSensors:
         except Exception as e:
             return None
 
-    def update_temperatures(self, blocking=False):
+    def request_temperatures(self, blocking=False):
         """[Requests a new temperature converion/update from the sensors.]"""
         self.temp_bus.convert_temp()
         if blocking:

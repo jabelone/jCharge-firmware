@@ -39,36 +39,39 @@ class Channel:
         self.state = "empty"
         self.led_state = 0
         self.discharge_stats = None
+        self.temperature = 0
 
-        voltage_and_current = self.get_voltage_and_current()
-        self.voltage_and_current = voltage_and_current
+        self.voltage_and_current = self.request_voltage_and_current()
+        self.current = self.request_current()
 
         self.discharge_pin.off()
 
     def __str__(self):
         return self.channel
 
-    def update_temperatures(self):
-        self.temperature_sensors.temp_bus.convert_temp()
-
     def cell_removed(self):
-        """[A cell was removed from the channel]"""
+        """
+        A cell was removed from the channel.
+        """
         self.stop_discharge()
         self.set_empty()
         log.info("Cell removed from slot {}.".format(self.channel))
 
     def cell_inserted(self):
-        """[A cell was inserted into the channel]"""
+        """
+        A cell was inserted into the channel.
+        """
         log.info("Cell inserted on slot {}.".format(self.channel))
 
         if AUTO_DISCHARGE:
             self.start_discharge()
-            self.set_discharging()
         else:
             self.set_idle()
 
     def stop_discharge(self):
-        """[Stops the current discharge]"""
+        """
+        Stops the current discharge.
+        """
         self.discharge_pin.off()
         # self.send_stats() # TODO: implement
         log.info(
@@ -78,7 +81,10 @@ class Channel:
         )
 
     def start_discharge(self):
-        """[Starts the current discharge]"""
+        """
+        Starts the current discharge.
+        """
+        self.set_discharging()
         self.discharge_stats = DischargeStats(
             self.temperature, self.voltage_and_current["voltage"]
         )
@@ -98,31 +104,52 @@ class Channel:
             else 0,
         }
 
+    def request_temperatures(self):
+        self.temperature_sensors.temp_bus.convert_temp()
+
     def get_temperature(self):
-        """[Returns the latest temperature read for the channel.]
+        """Returns the latest temperature read for the channel.
 
         Returns:
-            [number]: [Temperature in degrees celcius.]
+            number: Temperature in degrees Celsius.
         """
         self.temperature = self.temperature_sensors.get_temperature(
             self.channel)
         return self.temperature
 
-    def get_current(self):
-        """[Returns the current for the channel.]
+    def request_current(self):
+        """Requests a new current reading for the channel.
 
         Returns:
-            [number]: [Current in milliamps.]
+            number: Current in milliamps.
         """
-        return self.current_sensors.get_channel_current(self.channel)
+        self.current = self.current_sensors.get_channel_current(self.channel)
+        return self.current
+
+    def request_voltage_and_current(self):
+        """Requests a new voltage and current reading for the channel.
+
+        Returns:
+            number: Voltage in volts and current in milliamps.
+        """
+        self.voltage_and_current = self.current_sensors.get_channel_voltage_and_current(self.channel)
+        return self.voltage_and_current
+
+    def get_current(self):
+        """Returns the current for the channel.
+
+        Returns:
+            number: Current in milliamps.
+        """
+        return self.current
 
     def get_voltage_and_current(self):
-        """[Returns the voltage and current for the channel.]
+        """Returns the voltage and current for the channel.
 
         Returns:
-            [number]: [Voltage in volts and current in milliamps.]
+            number: Voltage in volts and current in milliamps.
         """
-        return self.current_sensors.get_channel_voltage_and_current(self.channel)
+        return self.voltage_and_current
 
     def set_led(self, colour, write=True):
         self.leds.set_channel(self.channel, colour, write)

@@ -8,16 +8,23 @@ log.setLevel(logging.DEBUG)
 
 class Packet:
     def __init__(self, version, id, capabilities):
-        """[Parse and generate kCharge packets.]
+        """Parse and generate kCharge packets.
 
         Args:
-            version ([integer]): [Version of the kCharge protocol]
+            version (integer): Version of the kCharge protocol
+            id (string): Id of the device to use.
+            capabilities (dictionary): A kCharge capabilities object.
         """
         self.version = version
         self.id = id
         self.capabilities = capabilities
 
     def build_hello_server(self):
+        """Returns a valid helloServer packet.
+
+        Returns:
+            string: A valid helloServer packet
+        """
         payload = {
             "id": str(self.id),
             "deviceName": None,
@@ -28,6 +35,11 @@ class Packet:
         return self.build_packet("HelloServer", payload)
 
     def build_device_status(self, payload):
+        """Returns a valid deviceStatus packet.
+
+        Returns:
+            string: A valid deviceStatus packet
+        """
         return self.build_packet("DeviceStatus", payload)
 
     def build_ping(self):
@@ -35,7 +47,15 @@ class Packet:
         return self.build_packet("Ping", payload)
 
     def build_packet(self, command, payload):
-        """Returns a string of a kCharge packet"""
+        """[summary]
+
+        Args:
+            command (string): Name of the kCharge command.
+            payload ([type]): A dictionary containing the packet payload.
+
+        Returns:
+            string: A JSON encoded string of the entire packet.
+        """
         return json.dumps(
             {
                 "version": self.version,
@@ -46,7 +66,14 @@ class Packet:
         )
 
     def parse_packet(self, packet):
-        """Attempts to parse a kCharge packet"""
+        """Parses a kCharge packet and checks the version is valid.
+
+        Args:
+            packet (string): Raw string received from the websocket.
+
+        Returns:
+            dictionary: Returns a dictionary containing the kCharge data
+        """
         try:
             packet = json.loads(packet)
         except:
@@ -63,12 +90,21 @@ class Packet:
             return packet
 
     def handle_packet(self, packet, channels, ws):
-        """Handle a parsed packet"""
+        """Handler that calls the appropriate method for each received kCharge packet.
+
+        Args:
+            packet (dictionary): A valid kCharge packet dictionary.
+            channels (list): The main channels list.
+            ws (uwebsockets client object): The websocket client object.
+
+        Returns:
+            [type]: [description]
+        """
 
         if packet["command"] != "pong":
             log.debug("Got a {} packet!".format(packet["command"]))
 
         if packet["command"] == "startAction":
-            start_action(packet, channels, ws)
+            start_action(packet.get("payload"), channels, ws)
 
         return True

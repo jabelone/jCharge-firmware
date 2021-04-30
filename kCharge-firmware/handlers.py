@@ -1,13 +1,22 @@
+import logging
 
-def start_action(packet, channels, ws):
-    channel = packet.get("channel")
-    action = packet.get("action")
-    rate = packet.get("rate")
-    cutoff_voltage = packet.get("cutoffVoltage")
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
+
+def start_action(payload, channels, ws):
+    # extract all of the data that we need
+    channel = payload.get("channel")
+    action = payload.get("action")
+    rate = payload.get("rate")
+    cutoff_voltage = payload.get("cutoffVoltage")
+
+    # start the relevant action
     if action == "charge":
-        pass
+        log.info("Starting CHARGE from startAction command.")
+
     elif action == "discharge":
-        pass
+        channels[channel-1].start_discharge()
+
     elif action == "dcResistance":
-        pass
+        log.info("Starting DC RESISTANCE from startAction command.")

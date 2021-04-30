@@ -1,8 +1,6 @@
 import time
-import json
 import uwebsockets.client
 from usocket import *
-from machine import Timer
 from leds import BLUE, OFF
 
 import logging
@@ -24,8 +22,8 @@ class WS:
         self.last_pong = None
 
     def search_and_connect(self):
-        if self.ws:
-            self.ws.close()
+        # if self.ws:
+        #     self.ws.close()
 
         for i in range(8):
             self.status_leds.set_channel(i, OFF)
@@ -117,10 +115,10 @@ class WS:
         if not self.connected:
             log.warning("Trying to send PING while websocket is NOT connected.")
 
-            # if we aren't already tring to connect, then try to
+            # if we aren't already trying to connect, then try to
             if not self.connecting:
-                log.debug("Closing connection")
-                self.ws.close()
+                # log.debug("Closing connection")
+                # self.ws.close()
                 log.debug("Starting search")
                 self.search_and_connect()
 
@@ -145,10 +143,8 @@ class WS:
             return packet
 
         except OSError:
-            # this means we probably got disconnected from the websocket so we should try to connect again
+            # this means we probably got disconnected from the websocket so set the state to that
             self.connected = False
-            self.search_and_connect()
-
 
 class WSDisconnect(Exception):
     """Raised when our websocket disconnects"""

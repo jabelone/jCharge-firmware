@@ -1,6 +1,5 @@
 # This is your main script.
 import time
-import machine
 from temperature import TemperatureSensors
 from leds import Leds, BLUE, OFF, YELLOW, GREEN, RED
 from channel import Channel
@@ -11,6 +10,8 @@ import ubinascii
 from machine import Timer
 from ws import WS
 from timers import Timers
+import json
+import _thread
 
 import logging
 
@@ -24,7 +25,7 @@ CELL_DETECTION_THRESHOLD = 0.5  # minimum voltage to detect a cell in volts
 MAX_CELL_VOLTAGE = 4.25  # maximum voltage to detect a cell in volts
 
 # the channels equal their position in the array + 1
-channel_pins = [4, 25, 33, 32, 23, 5, 17, 16]
+channel_pins = [25, 4, 33, 32, 5, 17, 23, 16]
 
 # current sensor config in the format of channel (ina_address, ina_channel)
 current_sensor_configuration = {
@@ -61,8 +62,8 @@ wlan.active(True)
 
 if not wlan.isconnected():
     log.info("Connecting to WiFi...")
-    # wlan.connect("Bill Wi The Science Fi", "225261007622")
-    wlan.connect("HSBNEWiFi", "HSBNEPortHack")
+    wlan.connect("Bill Wi The Science Fi", "225261007622")
+    # wlan.connect("HSBNEWiFi", "HSBNEPortHack")
     while not wlan.isconnected():
         time.sleep(0.25)
         status_leds.set_channel(4, OFF)
@@ -102,7 +103,7 @@ ws = WS(status_leds, temperature_sensors, channels, packet)
 ws.search_and_connect()
 
 # request a temperature reading on the 1wire bus and wait for it to complete
-channels[0].update_temperatures()
+channels[0].request_temperatures()
 time.sleep(0.75)
 
 # loop through each temperature sensor and retrieve it's reading, then set the channel BLUE
@@ -113,29 +114,101 @@ for channel in channels:
 # setup our timers for the io, stats collection and debug output handlers
 timers = Timers(status_leds, temperature_sensors, ws, channels, packet)
 
-io_timer = Timer(0)
-io_timer.init(period=500, mode=Timer.PERIODIC, callback=timers.io)
+control_loop_timer = Timer(3)
+control_loop_timer.init(period=1, mode=Timer.PERIODIC,
+                        callback=timers.control_loop)
 
 stats_collection_timer = Timer(1)
-stats_collection_timer.init(
-    period=30000, mode=Timer.PERIODIC, callback=timers.stats_collection
-)
+# stats_collection_timer.init(
+#     period=30000, mode=Timer.PERIODIC, callback=timers.stats_collection
+# )
 
 debug_output_timer = Timer(2)
 # debug_output_timer.init(period=5000, mode=Timer.PERIODIC, callback=timers.debug_output)
 
 log.info("FINISHED SETUP")
 
+last_loop_run = time.ticks_ms()
+last_ping = time.ticks_ms()
+ticks_since_last_loop = 0
+leds_on = True
+
+
+def handle_incoming_ws():
+    while True:
+        # receive and handle a kCharge packet as often as the main loop runs
+        if ws.connected:
+            received_packet = ws.receive_packet()
+            if received_packet:
+                packet.handle_packet(received_packet, channels, ws)
+        else:
+            time.sleep(1)
+
+
+_thread.start_new_thread(handle_incoming_ws, ())
+
 try:
     while True:
-        # receive an handle a kCharge packet as often as the main loop runs
-        received_packet = ws.receive_packet()
-        if received_packet:
-            packet.handle_packet(received_packet, channels, ws)
+        if time.ticks_ms() - last_ping >= 3000:
+            last_ping = time.ticks_ms()
+            if ws.last_pong is not None and time.time() - ws.last_pong >= 7:
+                log.warning("WS timed out!")
+                ws.connected = False
+
+            else:
+                ws.send_ping()
+
+        ticks_since_last_loop += 1
+        if time.ticks_ms() - last_loop_run >= 2000:
+            last_loop_run = time.ticks_ms()
+
+            if ws.ws and not ws.ws.open:
+                ws.connected = False
+
+            leds_on = not leds_on
+            stats = []
+
+            for channel in channels:
+                channel.get_temperature()
+                # add each channel's stats to the stats list
+                stats.append(channel.get_stats())
+
+                # if the websocket is connected, update the LED states
+                if ws.connected:
+                    if channel.state == "empty":
+                        channel.set_led(BLUE, write=False)
+
+                    elif channel.state == "idle":
+                        channel.set_led(YELLOW, write=False)
+
+                    elif channel.state == "discharging":
+                        if leds_on:
+                            channel.set_led(YELLOW, write=False)
+                        else:
+                            channel.set_led(OFF, write=False)
+
+                    elif channel.state == "complete":
+                        channel.set_led(GREEN, write=False)
+
+                    elif channel.state == "error" or channel.state == "verror":
+                        if leds_on:
+                            channel.set_led(RED, write=False)
+
+                        else:
+                            channel.set_led(OFF, write=False)
+
+            # update all the LEDs at once, so don't write them all after each iteration - just once at the end
+            status_leds.write()
+
+            # request new temperature readings for next time
+            temperature_sensors.request_temperatures()
+
+            stats = json.dumps({"channels": stats})
+
+            ws.send(packet.build_device_status(stats))
 
         for channel in channels:
-            # as often as the main loop runs, update the voltage and current, and temperature readings
-            voltage_and_current = channel.get_voltage_and_current()
+            voltage_and_current = channel.request_voltage_and_current()
             channel.voltage_and_current = voltage_and_current
             channel.temperature = channel.get_temperature()
 
@@ -145,7 +218,7 @@ try:
 
             if channel.state == "empty":
                 # if the voltage is above the min required to start discharging and below threshold
-                if v > channel.start_discharge_voltage_cutoff and v < MAX_CELL_VOLTAGE:
+                if channel.start_discharge_voltage_cutoff < v < MAX_CELL_VOLTAGE:
                     channel.cell_inserted()
 
                 # if the voltage is outside that range but above the cell detection threshold then set an error state
