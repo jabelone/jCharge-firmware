@@ -68,6 +68,17 @@ class Channel:
         else:
             self.set_idle()
 
+    def start_discharge(self):
+        """
+        Starts the current discharge.
+        """
+        self.set_discharging()
+        self.discharge_stats = DischargeStats(
+            self.temperature, self.voltage_and_current["voltage"]
+        )
+        self.discharge_pin.on()
+        log.debug("Cell started discharging on slot {}.".format(self.channel))
+
     def stop_discharge(self):
         """
         Stops the current discharge.
@@ -79,17 +90,13 @@ class Channel:
                 str(self.discharge_stats), self.channel
             )
         )
+        self.set_complete()
 
-    def start_discharge(self):
-        """
-        Starts the current discharge.
-        """
-        self.set_discharging()
-        self.discharge_stats = DischargeStats(
-            self.temperature, self.voltage_and_current["voltage"]
-        )
-        self.discharge_pin.on()
-        log.debug("Cell started discharging on slot {}.".format(self.channel))
+    def stop_action(self):
+        if self.state == "discharging":
+            self.stop_discharge()
+        else:
+            log.error("Unable to stop action: " + self.state)
 
     def get_stats(self):
         return {

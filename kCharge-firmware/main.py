@@ -25,7 +25,7 @@ CELL_DETECTION_THRESHOLD = 0.5  # minimum voltage to detect a cell in volts
 MAX_CELL_VOLTAGE = 4.25  # maximum voltage to detect a cell in volts
 
 # the channels equal their position in the array + 1
-channel_pins = [25, 4, 33, 32, 5, 17, 23, 16]
+channel_pins = [33, 4, 25, 32, 5, 17, 23, 16]
 
 # current sensor config in the format of channel (ina_address, ina_channel)
 current_sensor_configuration = {
@@ -159,7 +159,7 @@ try:
                 ws.send_ping()
 
         ticks_since_last_loop += 1
-        if time.ticks_ms() - last_loop_run >= 2000:
+        if time.ticks_ms() - last_loop_run >= 500:
             last_loop_run = time.ticks_ms()
 
             if ws.ws and not ws.ws.open:

@@ -107,4 +107,7 @@ class Packet:
         if packet["command"] == "startAction":
             start_action(packet.get("payload"), channels, ws)
 
+        if packet["command"] == "stopAction":
+            stop_action(packet.get("payload"), channels, ws)
+
         return True

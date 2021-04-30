@@ -20,3 +20,10 @@ def start_action(payload, channels, ws):
 
     elif action == "dcResistance":
         log.info("Starting DC RESISTANCE from startAction command.")
+
+
+def stop_action(payload, channels, ws):
+    # extract all of the data that we need
+    channel = payload.get("channel")
+
+    channels[channel-1].stop_action()
